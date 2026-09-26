@@ -270,6 +270,7 @@ import net.ccbluex.liquidbounce.features.module.modules.world.packetmine.ModuleP
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ModuleScaffold
 import net.ccbluex.liquidbounce.features.module.modules.world.traps.ModuleAutoTrap
 import net.ccbluex.liquidbounce.features.addon.AddonApi
+import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleShieldDesync
 import net.ccbluex.liquidbounce.utils.client.clientStartDurationMs
 import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.client.logger
@@ -482,6 +483,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleMaceKill,
             ModuleSpearKill,
             ModuleNoMissCooldown,
+            ModuleShieldDesync,
 
             // Exploit
             ModuleAbortBreaking,
