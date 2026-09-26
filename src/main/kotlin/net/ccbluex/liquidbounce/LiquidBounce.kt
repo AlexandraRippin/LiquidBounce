@@ -435,7 +435,7 @@ object LiquidBounce : EventListener {
 
         // Prepare glyph manager
         val duration = measureTime {
-            FontManager.createGlyphManager()
+            //FontManager.createGlyphManager()
         }
         logger.info("Completed loading fonts in ${duration.inWholeMilliseconds} ms.")
         logger.info("Fonts: [ ${FontManager.fontFaces.keys.joinToString()} ]")
