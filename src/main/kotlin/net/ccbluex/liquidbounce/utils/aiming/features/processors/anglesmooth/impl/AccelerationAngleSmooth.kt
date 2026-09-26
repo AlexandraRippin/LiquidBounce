@@ -80,6 +80,8 @@ class AccelerationAngleSmooth(parent: ModeValueGroup<*>) : AngleSmooth("Accelera
     private val constantError = tree(ConstantError())
     private val sigmoidDeceleration = tree(SigmoidDeceleration())
 
+    private val instaStop by boolean("InstaStop", false)
+
     private val errorProviders: Pair<ErrorProvider, ErrorProvider>
         get() {
             val accelerationError = accelerationError.takeIf { accelerationError.enabled }
@@ -187,6 +189,14 @@ class AccelerationAngleSmooth(parent: ModeValueGroup<*>) : AngleSmooth("Accelera
         crosshair: Boolean,
         distance: Double
     ): Vec2 {
+        if (instaStop && prevDiff.length() > diff.length()){
+            // Our turning speed higher than angle difference, return current delta for InstaStop
+            return Vec2(
+                diff.deltaYaw,
+                diff.deltaPitch
+            )
+        }
+
         val decelerationFactor = sigmoidDeceleration.computeDecelerationFactor(diff.length())
             .takeIf { sigmoidDeceleration.enabled } ?: 1.0F
 
