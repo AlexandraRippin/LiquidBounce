@@ -135,7 +135,10 @@ val LivingEntity.armorItems: Array<ItemStack>
  */
 @JvmOverloads
 fun LivingEntity.blockedByShield(source: DamageSource, damageAmount: Float = 1.0F): Boolean =
-    getBlockedDamage(source, damageAmount) > 0.0F
+    getBlockedDamage(source, damageAmount) > 0.0F &&
+        // Shield will block after 5 ticks after usage
+        // TODO: Check correctness of condition "> 5"
+        this.ticksUsingItem > 5
 
 /**
  * Mirrors the client-computable part of `net.minecraft.world.entity.LivingEntity#applyItemBlocking`.
