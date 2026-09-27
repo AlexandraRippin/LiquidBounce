@@ -68,7 +68,6 @@ import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.tower.Sca
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationsValueGroup
-import net.ccbluex.liquidbounce.utils.aiming.utils.withFixedYaw
 import net.ccbluex.liquidbounce.utils.block.SwingMode
 import net.ccbluex.liquidbounce.utils.block.doPlacement
 import net.ccbluex.liquidbounce.utils.block.targetBlockPos
@@ -601,6 +600,9 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
                         player.horizontalCollision
                     )
                 )
+                // Enforce client to update rotation back.
+                // Should prevent simulation falses
+                player.yRotLast += 0.0001f
             }
 
             if (rotationTiming == ON_TICK_SNAP) {
@@ -623,15 +625,6 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
             wasSuccessful = true
             true
         }, swingMode = swingMode)
-
-        if (rotationTiming == ON_TICK && RotationManager.serverRotation != player.rotation) {
-            network.send(
-                PosRot(
-                    player.x, player.y, player.z, player.withFixedYaw(currentRotation), player.xRot, player.onGround(),
-                    player.horizontalCollision
-                )
-            )
-        }
 
         if (wasSuccessful) {
             ScaffoldMovementPrediction.onPlace(currentOptimalLine, previousFallOffPos)

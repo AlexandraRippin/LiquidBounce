@@ -30,7 +30,6 @@ import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debug
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
 import net.ccbluex.liquidbounce.utils.aiming.utils.canSeeBox
-import net.ccbluex.liquidbounce.utils.aiming.utils.withFixedYaw
 import net.ccbluex.liquidbounce.utils.clicking.Clicker
 import net.ccbluex.liquidbounce.utils.clicking.ItemCooldown
 import net.ccbluex.liquidbounce.utils.client.mc
@@ -157,32 +156,19 @@ object KillAuraClicker : Clicker<ModuleKillAura>(
                     player.horizontalCollision
                 )
             )
+            // Enforce client to update rotation back
+            player.yRotLast += 0.0001f
         }
 
         // Run the attack
         click(attack)
 
-        // 1. Rotate back
-        if (rotationTiming == KillAuraRotationsValueGroup.KillAuraRotationTiming.ON_TICK && rotation != null) {
-            network.send(
-                PosRot(
-                    player.x,
-                    player.y,
-                    player.z,
-                    player.withFixedYaw(rotation),
-                    player.xRot,
-                    player.onGround(),
-                    player.horizontalCollision
-                )
-            )
-        }
-
-        // 2. Start blocking again
+        // 1. Start blocking again
         if (KillAuraAutoBlock.blockImmediate) {
             KillAuraAutoBlock.startBlocking()
         }
 
-        // 3. Open inventory again
+        // 2. Open inventory again
         if (wasSimulatedInventoryClose) {
             network.send1_11_1OpenInventory()
         }
