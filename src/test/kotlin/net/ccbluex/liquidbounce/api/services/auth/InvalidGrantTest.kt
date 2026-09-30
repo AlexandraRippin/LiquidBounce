@@ -16,17 +16,24 @@
  * You should have received a copy of the GNU General Public License
  * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
  */
+package net.ccbluex.liquidbounce.api.services.auth
 
-package net.ccbluex.liquidbounce.features.misc
+import net.ccbluex.liquidbounce.api.core.HttpException
+import net.ccbluex.liquidbounce.api.core.HttpMethod
+import kotlin.test.Test
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
-import net.ccbluex.liquidbounce.utils.text.withFormat
-import net.minecraft.ChatFormatting
-import net.minecraft.util.FormattedCharSequence
+class InvalidGrantTest {
 
-interface DebuggedOwner {
-    val debugDisplayName: FormattedCharSequence
-        get() = this.javaClass.simpleName.withFormat(ChatFormatting.BLUE)
+    private fun refused(code: Int, content: String) =
+        HttpException(HttpMethod.POST, "https://auth.liquidbounce.net/application/o/token/", code, content)
 
-    val debugOwnerId: String
-        get() = this.javaClass.name
+    @Test
+    fun `only a refused grant counts`() {
+        assertTrue(refused(400, """{"error": "invalid_grant"}""").isInvalidGrant)
+        assertFalse(refused(400, """{"error": "invalid_request"}""").isInvalidGrant)
+        assertFalse(refused(502, "<html>Bad Gateway</html>").isInvalidGrant)
+    }
+
 }
