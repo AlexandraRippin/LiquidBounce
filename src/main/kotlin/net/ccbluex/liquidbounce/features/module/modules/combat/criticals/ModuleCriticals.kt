@@ -183,7 +183,10 @@ object ModuleCriticals : ClientModule("Criticals", ModuleCategories.COMBAT) {
             }
 
             // If we are about to do a critical hit, we should stop sprinting.
-            return target != null && clicker.willClickAt(1)
+            return target != null && clicker.willClickAt(1) &&
+                allowsCriticalHit(true) &&
+                // Check attackStrength for a next Tick
+                player.getAttackStrengthScale(-0.5f) > 0.9f
         }
 
     }
