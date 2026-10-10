@@ -17,19 +17,8 @@
  * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
  */
 
-package net.ccbluex.liquidbounce.integration.backend
+package net.ccbluex.liquidbounce.utils.kotlin
 
-import net.ccbluex.liquidbounce.features.addon.AddonApi
-
-/**
- * Determines if acceleration is supported on the current system.
- * Is In Beta is a flag to prevent it from being used by default on a supported
- * but not tested system.
- */
-@AddonApi
-data class BrowserAccelerationFlags(val isSupported: Boolean, val isBeta: Boolean) {
-    companion object {
-        @JvmField
-        val UNSUPPORTED = BrowserAccelerationFlags(isSupported = false, isBeta = false)
-    }
-}
+fun safeIntRangeOf(a: Int, b: Int) = minOf(a, b)..maxOf(a, b)
+fun Int.rangeAround(radius: Int) = this - radius..this + radius
+fun IntRange.coerceIn(range: IntRange) = (maxOf(first, range.first)..minOf(last, range.last))

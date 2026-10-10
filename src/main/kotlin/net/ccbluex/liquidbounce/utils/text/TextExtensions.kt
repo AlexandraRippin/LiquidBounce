@@ -21,6 +21,8 @@
 package net.ccbluex.liquidbounce.utils.text
 
 import com.google.common.base.CaseFormat
+import com.google.common.net.HostAndPort
+import com.google.common.net.InetAddresses
 import it.unimi.dsi.fastutil.chars.CharOpenHashSet
 import net.ccbluex.fastutil.unmodifiable
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
@@ -259,8 +261,14 @@ fun String.capitalize(): String = replaceFirstChar {
 
 fun String.toLowerCamelCase(): String = CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL, this)
 
+/** Removes a server port and IPv6 brackets without resolving the host. Invalid addresses are left intact. */
 fun String.dropPort(): String {
-    return this.substringBefore(':')
+    return try {
+        // Bracketless IPv6 is accepted as a host without a port.
+        HostAndPort.fromString(this).host
+    } catch (_: IllegalArgumentException) {
+        this
+    }
 }
 
 private val IP_REGEX = Regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$")
@@ -279,7 +287,8 @@ private val IP_REGEX = Regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$")
 fun String.rootDomain(): String {
     var domain = this.trim().lowercase()
 
-    if (domain.matches(IP_REGEX)) {
+    val ipv6 = ':' in domain && InetAddresses.isInetAddress(domain.removeSurrounding("[", "]").substringBefore('%'))
+    if (ipv6 || domain.matches(IP_REGEX)) {
         // IP address
         return domain
     }
@@ -333,11 +342,13 @@ fun Long.formatAsCapacity(): String {
 fun String.hideSensitiveAddress(): String {
     val idx = lastIndexOf(':')
     val host = if (idx == -1) this else substring(0, idx)
+    // DNS ignores case and a trailing dot, so neither may keep a route visible
+    val name = host.lowercase().trimEnd('.')
 
     // Hide possibly sensitive information from LiquidProxy
     val newHost = when {
-        host.endsWith(".liquidbounce.net") -> "<redacted>.liquidbounce.net"
-        host.endsWith(".liquidproxy.net") -> "<redacted>.liquidproxy.net"
+        name.endsWith(".liquidbounce.net") -> "<redacted>.liquidbounce.net"
+        name.endsWith(".liquidproxy.net") -> "<redacted>.liquidproxy.net"
         else -> host
     }
 
