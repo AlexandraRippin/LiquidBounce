@@ -57,7 +57,6 @@ internal object VelocityGrim2371 : VelocityMode("Grim2371") {
 
     private var needSkipTick = false
 
-    private var waitForPing = false
     private var waitForUpdate = false
 
     private var hitResult: BlockHitResult? = null
@@ -185,6 +184,8 @@ internal object VelocityGrim2371 : VelocityMode("Grim2371") {
                         player.horizontalCollision
                     )
                 )
+                // We're overriding Rotation by this packet. So recover client Rotation by enforcing update
+                player.yRotLast += 0.0001f
             } else {
                 network.send(
                     ServerboundMovePlayerPacket.StatusOnly(
@@ -210,7 +211,6 @@ internal object VelocityGrim2371 : VelocityMode("Grim2371") {
             freezeTicks++
             if (freezeTicks > MAX_FREEZE_TICKS) {
                 waitForUpdate = false
-                waitForPing = false
                 needClick = false
             }
         }
