@@ -48,7 +48,7 @@ private fun generateScaffoldOffsets(vararg xzValues: Int): List<BlockPos> {
 
 enum class BlockPosOffsets(val offsets: List<BlockPos>) {
     NO_OFFSET(listOf(BlockPos.ZERO)),
-    NORMAL(generateScaffoldOffsets(0, -1, 1)),
+    NORMAL(generateScaffoldOffsets(0, -1, 1, -2, 2, -3, 3)),
     DOWN(generateScaffoldOffsets(0, -1, 1, -2, 2)),
     FULL(generateScaffoldOffsets(0, -1, 1, -2, 2, -3, 3, -4, 4)),
     ;
