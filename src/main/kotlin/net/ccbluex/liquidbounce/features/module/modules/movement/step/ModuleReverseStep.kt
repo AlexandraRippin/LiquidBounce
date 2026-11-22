@@ -18,17 +18,20 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.movement.step
 
+import net.ccbluex.agent.simulation.SimulatedInput
+import net.ccbluex.agent.simulation.SimulatedPlayer
 import net.ccbluex.fastutil.referenceHashSetOf
 import net.ccbluex.liquidbounce.config.types.group.Mode
 import net.ccbluex.liquidbounce.config.types.group.ModeValueGroup
+import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.PlayerJumpEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.utils.block.getBlock
-import net.ccbluex.liquidbounce.utils.entity.FallingPlayer
-import net.ccbluex.liquidbounce.utils.entity.SimulatedPlayer
+import net.ccbluex.liquidbounce.utils.entity.fallingPlayer
+import net.ccbluex.liquidbounce.utils.entity.fromClientPlayer
 import net.ccbluex.liquidbounce.utils.math.allEmpty
 import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket
@@ -57,9 +60,7 @@ object ModuleReverseStep : ClientModule("ReverseStep", ModuleCategories.MOVEMENT
 
     private val unwantedBlocksBelow: Boolean
         get() {
-            val collision = FallingPlayer
-                .fromPlayer(player)
-                .findCollision(20)?.pos ?: return false
+            val collision = player.fallingPlayer().findCollision(20)?.pos ?: return false
             return collision.getBlock() in UNWANTED_BLOCKS
         }
 
@@ -68,7 +69,7 @@ object ModuleReverseStep : ClientModule("ReverseStep", ModuleCategories.MOVEMENT
         initiatedJump = true
     }
 
-    val repeatable = tickHandler {
+    val repeatable = handler<GameTickEvent> {
         if (player.deltaMovement.y > 0.0) {
             initiatedJump = true
         } else if (player.onGround()) {
@@ -83,13 +84,13 @@ object ModuleReverseStep : ClientModule("ReverseStep", ModuleCategories.MOVEMENT
         private val ticks by int("Ticks", 20, 1..40, "ticks")
         private val simulateFalling by boolean("SimulateFalling", false)
 
-        val repeatable = tickHandler {
+        val repeatable = handler<GameTickEvent> {
             if (!initiatedJump && !player.onGround() && !unwantedBlocksBelow) {
                 if (isFallingTooFar()) {
-                    return@tickHandler
+                    return@handler
                 }
 
-                val simInput = SimulatedPlayer.SimulatedPlayerInput.fromClientPlayer(DirectionalInput.NONE)
+                val simInput = SimulatedInput.fromClientPlayer(DirectionalInput.NONE)
                 val simulatePlayer = SimulatedPlayer.fromClientPlayer(simInput)
 
                 val simulationQueue = mutableListOf<ServerboundMovePlayerPacket>()
@@ -98,20 +99,20 @@ object ModuleReverseStep : ClientModule("ReverseStep", ModuleCategories.MOVEMENT
                     // to the end.
                     // If we do not reach this point, this means we will go out of the loop by reaching the tick limit
                     // and therefore lose the simulation.
-                    if (simulatePlayer.onGround) {
+                    if (simulatePlayer.onGround()) {
                         if (simulationQueue.isNotEmpty()) {
                             simulationQueue.forEach(network::send)
                         }
 
-                        player.setPos(simulatePlayer.pos)
+                        player.setPos(simulatePlayer.position())
                         break
                     }
 
                     simulatePlayer.tick()
                     if (simulateFalling) {
                         simulationQueue += ServerboundMovePlayerPacket.Pos(
-                            simulatePlayer.pos.x,
-                            simulatePlayer.pos.y, simulatePlayer.pos.z, simulatePlayer.onGround,
+                            simulatePlayer.position().x,
+                            simulatePlayer.position().y, simulatePlayer.position().z, simulatePlayer.onGround(),
                             simulatePlayer.horizontalCollision
                         )
                     }
@@ -129,10 +130,10 @@ object ModuleReverseStep : ClientModule("ReverseStep", ModuleCategories.MOVEMENT
 
         private val factor by float("Factor", 1.0F, 0.1F..5.0F)
 
-        val repeatable = tickHandler {
+        val repeatable = handler<GameTickEvent> {
             if (!initiatedJump && !player.onGround() && player.deltaMovement.y < 0.0 && !unwantedBlocksBelow) {
                 if (isFallingTooFar()) {
-                    return@tickHandler
+                    return@handler
                 }
 
                 player.deltaMovement = player.deltaMovement.multiply(0.0, factor.toDouble(), 0.0)
@@ -148,10 +149,10 @@ object ModuleReverseStep : ClientModule("ReverseStep", ModuleCategories.MOVEMENT
 
         private val motion by float("Motion", 1.0F, 0.1F..5.0F)
 
-        val repeatable = tickHandler {
+        val repeatable = handler<GameTickEvent> {
             if (!initiatedJump && !player.onGround() && !unwantedBlocksBelow) {
                 if (isFallingTooFar()) {
-                    return@tickHandler
+                    return@handler
                 }
 
                 player.deltaMovement.y = -motion.toDouble()

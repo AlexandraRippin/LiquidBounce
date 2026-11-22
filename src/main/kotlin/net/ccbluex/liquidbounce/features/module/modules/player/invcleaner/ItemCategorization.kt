@@ -20,6 +20,7 @@ package net.ccbluex.liquidbounce.features.module.modules.player.invcleaner
 
 import net.ccbluex.fastutil.enumMapOf
 import net.ccbluex.liquidbounce.config.types.list.Tagged
+import net.ccbluex.liquidbounce.features.module.modules.combat.autoarmor.ModuleAutoArmor
 import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.items.ArmorItemFacet
 import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.items.ArrowItemFacet
 import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.items.BlockItemFacet
@@ -28,6 +29,7 @@ import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.items.
 import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.items.FoodItemFacet
 import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.items.GodAxeFacet
 import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.items.ItemFacet
+import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.items.KnockbackItemFacet
 import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.items.MaceItemFacet
 import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.items.MiningToolItemFacet
 import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.items.PotionItemFacet
@@ -43,6 +45,7 @@ import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ScaffoldB
 import net.ccbluex.liquidbounce.utils.inventory.ItemSlot
 import net.ccbluex.liquidbounce.utils.inventory.VirtualItemSlot
 import net.ccbluex.liquidbounce.utils.item.armor.ArmorComparator
+import net.ccbluex.liquidbounce.utils.item.armor.ArmorComparatorMode
 import net.ccbluex.liquidbounce.utils.item.armor.ArmorEvaluation
 import net.ccbluex.liquidbounce.utils.item.armor.ArmorKitParameters
 import net.ccbluex.liquidbounce.utils.item.armor.ArmorPiece
@@ -59,6 +62,7 @@ import net.ccbluex.liquidbounce.utils.item.isShovel
 import net.ccbluex.liquidbounce.utils.item.isSpear
 import net.ccbluex.liquidbounce.utils.item.isSword
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
+import net.minecraft.core.component.DataComponents
 import net.minecraft.world.entity.EquipmentSlot
 import net.minecraft.world.item.ArrowItem
 import net.minecraft.world.item.BlockItem
@@ -71,10 +75,12 @@ import net.minecraft.world.item.FishingRodItem
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
+import net.minecraft.world.item.LingeringPotionItem
 import net.minecraft.world.item.MaceItem
 import net.minecraft.world.item.PotionItem
 import net.minecraft.world.item.ShieldItem
 import net.minecraft.world.item.SnowballItem
+import net.minecraft.world.item.SplashPotionItem
 import net.minecraft.world.item.WindChargeItem
 import net.minecraft.world.item.enchantment.Enchantments
 import net.minecraft.world.level.material.LavaFluid
@@ -105,6 +111,12 @@ enum class ItemType(
     WEAPON(true, allocationPriority = Priority.IMPORTANT_FOR_USAGE_2),
     SPEAR(true, allocationPriority = Priority.IMPORTANT_FOR_USAGE_3),
     MACE(true, allocationPriority = Priority.IMPORTANT_FOR_USAGE_2),
+
+    /**
+     * Not [ItemFunction.WEAPON_LIKE] and below the weapon types, so the main weapon is picked first and a separate
+     * knockback item (e.g. a knockback stick) still gets its own slot.
+     */
+    KNOCKBACK(true, allocationPriority = Priority.NORMAL),
     BOW(true),
     CROSSBOW(true),
     ARROW(true),
@@ -116,8 +128,10 @@ enum class ItemType(
     BUCKET(false),
     PEARL(false, allocationPriority = Priority.IMPORTANT_FOR_USAGE_1),
     GAPPLE(false, allocationPriority = Priority.IMPORTANT_FOR_USAGE_1),
+    TOTEM(false),
     POTION(false),
     BLOCK(false),
+    JUNK(false),
     NONE(false);
 
     val defaultCategory = ItemCategory(this, 0)
@@ -142,6 +156,11 @@ enum class ItemSortChoice(
     WEAPON("Weapon", ItemType.WEAPON.defaultCategory),
     SPEAR("Spear", ItemType.SPEAR.defaultCategory, { it.isSpear }),
     MACE("Mace", ItemType.MACE.defaultCategory, { it.item is MaceItem }),
+    BEST_KNOCKBACK(
+        "BestKnockback",
+        ItemType.KNOCKBACK.defaultCategory,
+        { it.getEnchantment(Enchantments.KNOCKBACK) > 0 },
+    ),
     BOW("Bow", ItemType.BOW.defaultCategory),
     CROSSBOW("Crossbow", ItemType.CROSSBOW.defaultCategory),
     AXE("Axe", ItemCategory(ItemType.TOOL, MiningToolItemFacet.MASK_AXE), { it.isAxe }),
@@ -202,19 +221,57 @@ class ItemCategorization(
     private val futureArmorToKeep: List<ItemSlot>
     private val armorComparator: ArmorComparator
 
+    /**
+     * Knockback of the best real weapon, which is the one kept as main weapon. A dedicated knockback item has to
+     * knock back harder than it.
+     */
+    private val mainWeaponKnockback: Int =
+        availableItems.asSequence()
+            .filter { slot ->
+                val stack = slot.itemStack
+                stack.isSword || stack.isSpear || stack.item is MaceItem || stack.isAxe
+            }
+            .map(::WeaponItemFacet)
+            .maxOrNull()
+            ?.itemStack?.getEnchantment(Enchantments.KNOCKBACK)
+            ?: 0
+
     init {
-        val findBestArmorPieces = ArmorEvaluation.findBestArmorPieces(slots = availableItems)
+        val armorSlots = availableItems.filter(ModuleAutoArmor::isAllowedByCurseFilter)
+        val comparatorMode = ModuleAutoArmor.activeComparatorMode
+        val durabilityThreshold = ModuleAutoArmor.activeDurabilityThreshold
+        val considerProjectileProtection = ModuleAutoArmor.activeConsiderProjectileProtection
 
-        this.armorComparator = ArmorEvaluation.getArmorComparatorFor(findBestArmorPieces)
+        val findBestArmorPieces = ArmorEvaluation.findBestArmorPieces(
+            slots = armorSlots,
+            durabilityThreshold = durabilityThreshold,
+            mode = comparatorMode,
+            considerProjectileProtection = considerProjectileProtection,
+        )
 
-        val armorParameterForSlot = ArmorKitParameters.getParametersForSlots(diamondArmorPieces)
+        this.armorComparator = ArmorEvaluation.getArmorComparatorFor(
+            findBestArmorPieces,
+            durabilityThreshold = durabilityThreshold,
+            mode = comparatorMode,
+            considerProjectileProtection = considerProjectileProtection,
+        )
 
-        val armorComparatorForFullArmor = ArmorEvaluation.getArmorComparatorForParameters(armorParameterForSlot)
+        this.futureArmorToKeep = if (comparatorMode == ArmorComparatorMode.RAW_DEFENSE) {
+            emptyList()
+        } else {
+            val armorParameterForSlot = ArmorKitParameters.getParametersForSlots(diamondArmorPieces)
+            val armorComparatorForFullArmor = ArmorEvaluation.getArmorComparatorForParameters(
+                armorParameterForSlot,
+                durabilityThreshold = durabilityThreshold,
+                mode = comparatorMode,
+                considerProjectileProtection = considerProjectileProtection,
+            )
 
-        this.futureArmorToKeep = ArmorEvaluation.findBestArmorPiecesWithComparator(
-            availableItems,
-            armorComparatorForFullArmor
-        ).values.mapNotNull { it?.itemSlot }
+            ArmorEvaluation.findBestArmorPiecesWithComparator(
+                armorSlots,
+                armorComparatorForFullArmor
+            ).values.mapNotNull { it?.itemSlot }
+        }
     }
 
     /**
@@ -230,8 +287,11 @@ class ItemCategorization(
         }
 
         return buildList {
-            // Everything could be a weapon (i.e. a stick with Knockback II should be considered a weapon)
-            add(WeaponItemFacet(slot))
+            WeaponItemFacet.createIfUsefulAsWeapon(slot)?.let(::add)
+
+            if (itemStack.getEnchantment(Enchantments.KNOCKBACK) > mainWeaponKnockback) {
+                add(KnockbackItemFacet(slot))
+            }
 
             when (val item = itemStack.item) {
                 is BowItem -> add(BowItemFacet(slot))
@@ -260,18 +320,32 @@ class ItemCategorization(
                 }
 
                 is PotionItem -> {
-                    val areAllEffectsGood =
-                        itemStack.getPotionEffects()
-                            .all { it.effect in PotionItemFacet.GOOD_STATUS_EFFECTS }
+                    val effects = itemStack.getPotionEffects().toList()
+                    val isUsefulPotion =
+                        effects.isNotEmpty() && effects.all { it.effect in PotionItemFacet.GOOD_STATUS_EFFECTS }
 
-                    if (areAllEffectsGood) {
+                    if (isUsefulPotion) {
                         add(PotionItemFacet(slot))
+                    } else if (!itemStack.has(DataComponents.CUSTOM_NAME) && (effects.isEmpty() ||
+                            (item !is SplashPotionItem && item !is LingeringPotionItem &&
+                                effects.any { it.effect in PotionItemFacet.BAD_STATUS_EFFECTS }))
+                    ) {
+                        add(PrimitiveItemFacet(slot, ItemType.JUNK.defaultCategory))
                     } else {
                         add(ItemFacet(slot))
                     }
                 }
 
+                Items.GLASS_BOTTLE -> {
+                    if (itemStack.has(DataComponents.CUSTOM_NAME)) {
+                        add(ItemFacet(slot))
+                    } else {
+                        add(PrimitiveItemFacet(slot, ItemType.JUNK.defaultCategory))
+                    }
+                }
+
                 is EnderpearlItem -> add(PrimitiveItemFacet(slot, ItemType.PEARL.defaultCategory))
+                Items.TOTEM_OF_UNDYING -> add(PrimitiveItemFacet(slot, ItemType.TOTEM.defaultCategory))
 
                 Items.GOLDEN_APPLE -> {
                     add(FoodItemFacet(slot))
@@ -297,7 +371,8 @@ class ItemCategorization(
                         }
                     }
 
-                    itemStack.isPlayerArmor -> add(ArmorItemFacet(slot, futureArmorToKeep, armorComparator))
+                    itemStack.isPlayerArmor && ModuleAutoArmor.isAllowedByCurseFilter(slot) ->
+                        add(ArmorItemFacet(slot, futureArmorToKeep, armorComparator))
 
                     itemStack.isSword -> add(SwordItemFacet(slot))
 
@@ -308,6 +383,11 @@ class ItemCategorization(
                     itemStack.isMiningTool -> add(MiningToolItemFacet(slot))
 
                     itemStack.isFood -> add(FoodItemFacet(slot))
+
+                    // A custom name marks what the server handed out, such as a lobby menu item or a tracker.
+                    // Its own category keeps it out of ThrowUnknownItems.
+                    itemStack.has(DataComponents.CUSTOM_NAME) ->
+                        add(PrimitiveItemFacet(slot, ItemCategory(ItemType.NONE, 1)))
 
                     else -> add(ItemFacet(slot))
                 }

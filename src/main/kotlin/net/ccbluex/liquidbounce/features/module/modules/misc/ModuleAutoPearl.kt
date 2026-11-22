@@ -23,6 +23,7 @@ import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.event.events.PacketEvent
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
 import net.ccbluex.liquidbounce.event.handler
+import net.ccbluex.liquidbounce.event.requires
 import net.ccbluex.liquidbounce.event.sequenceHandler
 import net.ccbluex.liquidbounce.event.tickConditional
 import net.ccbluex.liquidbounce.event.tickHandler
@@ -39,10 +40,12 @@ import net.ccbluex.liquidbounce.utils.combat.shouldBeAttacked
 import net.ccbluex.liquidbounce.utils.inventory.Slots
 import net.ccbluex.liquidbounce.utils.inventory.useHotbarSlotOrOffhand
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
+import net.ccbluex.liquidbounce.utils.math.toRadians
 import net.ccbluex.liquidbounce.utils.render.trajectory.TrajectoryInfo
 import net.ccbluex.liquidbounce.utils.render.trajectory.TrajectoryInfoRenderer
 import net.ccbluex.liquidbounce.utils.render.trajectory.TrajectoryType
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket
+import net.minecraft.util.Mth
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityDimensions
 import net.minecraft.world.entity.EntitySpawnReason
@@ -125,7 +128,8 @@ object ModuleAutoPearl : ClientModule(
     @Suppress("unused")
     private val gameTickHandler = tickHandler {
         val rotation = queue.removeFirstOrNull() ?: return@tickHandler
-        val itemSlot = Slots.OffhandWithHotbar.findSlot(Items.ENDER_PEARL) ?: return@tickHandler
+
+        val itemSlot by requires { Slots.OffhandWithHotbar.findSlot(Items.ENDER_PEARL) }
 
         if (Rotate.enabled) {
             fun isRotationSufficient(): Boolean {
@@ -166,7 +170,7 @@ object ModuleAutoPearl : ClientModule(
             pos = pearlPos
         )?.location ?: return
 
-        if (Limits.enabled && Limits.activationDistance > destination.distanceTo(player.position())) {
+        if (Limits.enabled && destination.closerThan(player.position(), Limits.activationDistance.toDouble())) {
             return
         }
 
@@ -186,7 +190,7 @@ object ModuleAutoPearl : ClientModule(
     }
 
     private fun canTrigger(pearl: ThrownEnderpearl): Boolean {
-        if (Limits.enabled && Limits.angle < RotationUtil.crosshairAngleToEntity(pearl)) {
+        if (Limits.enabled && Mth.cos(Limits.angle.toDouble().toRadians()) > RotationUtil.crosshairCosToEntity(pearl)) {
             return false
         }
 
@@ -211,11 +215,11 @@ object ModuleAutoPearl : ClientModule(
         val simulatedDestination = TrajectoryInfoRenderer.getHypotheticalTrajectory(
             simulationOwner = player,
             trajectoryInfo = TrajectoryInfo.GENERIC,
-            trajectoryType = TrajectoryType.EnderPearl,
+            trajectoryType = TrajectoryType.ENDER_PEARL,
             rotation = angles
         ).runSimulation(MAX_SIMULATED_TICKS).hitResult?.location ?: return false
 
-        return !Limits.enabled || Limits.destDistance > destination.distanceTo(simulatedDestination)
+        return !Limits.enabled || destination.closerThan(simulatedDestination, Limits.destDistance.toDouble())
     }
 
     private fun runSimulation(
@@ -232,7 +236,7 @@ object ModuleAutoPearl : ClientModule(
             velocity = velocity,
             pos = pos,
             trajectoryInfo = trajectoryInfo,
-            trajectoryType = TrajectoryType.EnderPearl,
+            trajectoryType = TrajectoryType.ENDER_PEARL,
             type = TrajectoryInfoRenderer.Type.REAL,
             renderOffset = renderOffset
         ).runSimulation(MAX_SIMULATED_TICKS).hitResult

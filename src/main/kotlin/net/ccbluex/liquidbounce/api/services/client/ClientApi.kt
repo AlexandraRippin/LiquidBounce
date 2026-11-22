@@ -18,18 +18,31 @@
  */
 package net.ccbluex.liquidbounce.api.services.client
 
-import net.ccbluex.liquidbounce.api.core.ApiConfig.Companion.API_BRANCH
+import net.ccbluex.liquidbounce.api.core.ApiConfig.Companion.API_EDITION
 import net.ccbluex.liquidbounce.api.core.ApiConfig.Companion.config
-import net.ccbluex.liquidbounce.api.core.BaseApi
 import net.ccbluex.liquidbounce.api.models.client.Build
-import net.ccbluex.liquidbounce.api.models.client.MessageOfTheDay
+import net.ccbluex.liquidbounce.api.models.pagination.PaginatedResponse
+import retrofit2.create
+import retrofit2.http.GET
+import retrofit2.http.Query
 
-object ClientApi : BaseApi(config.apiEndpointV1) {
+object ClientApi {
 
-    suspend fun requestNewestBuildEndpoint(branch: String = API_BRANCH, release: Boolean = false) =
-        get<Build>("/version/newest/$branch${if (release) "/release" else ""}")
+    private val service = config.retrofit.create<Service>()
 
-    suspend fun requestMessageOfTheDayEndpoint(branch: String = API_BRANCH) =
-        get<MessageOfTheDay>("/client/$branch/motd")
+    /**
+     * The newest build of [edition], with [release] its newest release. `null` while it has none.
+     */
+    suspend fun requestNewestBuildEndpoint(edition: String = API_EDITION, release: Boolean = false): Build? =
+        service.builds(edition, release = if (release) true else null, limit = 1).items.firstOrNull()
+
+    internal interface Service {
+        @GET("builds")
+        suspend fun builds(
+            @Query("edition") edition: String,
+            @Query("release") release: Boolean?,
+            @Query("limit") limit: Int,
+        ): PaginatedResponse<Build>
+    }
 
 }

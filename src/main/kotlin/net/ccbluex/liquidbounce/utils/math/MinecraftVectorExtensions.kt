@@ -107,6 +107,9 @@ fun Vec3i.lengthSqr(): Long {
     return x1 * x1 + y1 * y1 + z1 * z1
 }
 
+fun Vec3i.distSqr(x: Int, y: Int, z: Int): Long =
+    Mth.square(this.x.toLong() - x) + Mth.square(this.y.toLong() - y) + Mth.square(this.z.toLong() - z)
+
 inline operator fun Vec3.unaryMinus(): Vec3 = this.reverse()
 
 inline operator fun Vec3.plus(other: Position): Vec3 = add(other.x(), other.y(), other.z())
@@ -201,9 +204,9 @@ fun Vec3.horizontalDistanceToSqr(other: Vec3): Double = horizontalDistanceToSqr(
 fun Vec3.horizontalDistanceToSqr(x: Double, z: Double): Double = Mth.lengthSquared(this.x - x, this.z - z)
 
 fun Position.distanceToCenterSqr(blockPos: Long): Double {
-    val dx = this.x() - BlockPos.getX(blockPos)
-    val dy = this.y() - BlockPos.getY(blockPos)
-    val dz = this.z() - BlockPos.getZ(blockPos)
+    val dx = this.x() - BlockPos.getX(blockPos) - 0.5
+    val dy = this.y() - BlockPos.getY(blockPos) - 0.5
+    val dz = this.z() - BlockPos.getZ(blockPos) - 0.5
     return Mth.lengthSquared(dx, dy, dz)
 }
 
@@ -214,6 +217,10 @@ inline operator fun Vec3.component3(): Double = this.z
 operator fun ChunkPos.contains(blockPos: Long): Boolean =
     SectionPos.blockToSectionCoord(BlockPos.getX(blockPos)) == this.x
         && SectionPos.blockToSectionCoord(BlockPos.getZ(blockPos)) == this.z
+
+fun ChunkPos.contains(blockX: Int, blockZ: Int): Boolean =
+    SectionPos.blockToSectionCoord(blockX) == this.x
+        && SectionPos.blockToSectionCoord(blockZ) == this.z
 
 fun Iterable<Vec3>.average(): Vec3 {
     var x = 0.0

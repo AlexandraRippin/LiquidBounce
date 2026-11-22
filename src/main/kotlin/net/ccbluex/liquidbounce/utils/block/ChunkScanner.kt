@@ -31,18 +31,19 @@ import kotlinx.coroutines.launch
 import net.ccbluex.fastutil.mapToArray
 import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.event.events.ChunkLoadEvent
+import net.ccbluex.liquidbounce.event.events.ChunkUnloadEvent
 import net.ccbluex.liquidbounce.event.events.PacketEvent
 import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.MinecraftShortcuts
-import net.ccbluex.liquidbounce.utils.client.logger
+import net.ccbluex.liquidbounce.utils.client.clientLogger
+import net.ccbluex.liquidbounce.utils.kotlin.CommonCoroutineExceptionHandler
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.FIRST_PRIORITY
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.READ_FINAL_STATE
 import net.ccbluex.liquidbounce.utils.kotlin.joinAll
 import net.ccbluex.liquidbounce.utils.world.forEachSectionBlock
 import net.minecraft.core.BlockPos
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket
-import net.minecraft.network.protocol.game.ClientboundForgetLevelChunkPacket
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.block.state.BlockState
@@ -53,6 +54,8 @@ import java.util.function.Predicate
 import kotlin.time.measureTime
 
 object ChunkScanner : EventListener, MinecraftShortcuts {
+
+    private val logger = clientLogger("ChunkScanner")
 
     private val loadedChunks = LongOpenHashSet()
 
@@ -115,15 +118,20 @@ object ChunkScanner : EventListener, MinecraftShortcuts {
 
                 UpdateRequest.ChunkSectionUpdate(packet).runAsync()
             }
-
-            is ClientboundForgetLevelChunkPacket -> mc.execute {
-                loadedChunks.remove(packet.pos.pack())
-
-                if (subscribers.isEmpty()) return@execute
-
-                UpdateRequest.ChunkUnload(packet.pos).runAsync()
-            }
         }
+    }
+
+    /**
+     * The event comes once the level has dropped the chunk. Deferring the packet's own handler instead runs after a
+     * reload of the same chunk that follows it, as when the player is moved far, and forgets the new chunk.
+     */
+    @Suppress("unused")
+    private val chunkUnloadHandler = handler<ChunkUnloadEvent>(READ_FINAL_STATE) { event ->
+        loadedChunks.remove(event.pos.pack())
+
+        if (subscribers.isEmpty()) return@handler
+
+        UpdateRequest.ChunkUnload(event.pos).runAsync()
     }
 
     @Suppress("unused")
@@ -146,11 +154,7 @@ object ChunkScanner : EventListener, MinecraftShortcuts {
      */
     private val worldJob = SupervisorJob()
 
-    val scope = CoroutineScope(dispatcher + worldJob + CoroutineExceptionHandler { context, throwable ->
-        if (throwable !is CancellationException) {
-            logger.warn("Chunk update error", throwable)
-        }
-    })
+    private val scope = CoroutineScope(dispatcher + worldJob + CommonCoroutineExceptionHandler { logger })
 
     /**
      * Cancel all existing enqueue(emit) jobs and scanner jobs

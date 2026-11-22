@@ -19,8 +19,8 @@
 
 package net.ccbluex.liquidbounce.features.module.modules.player.autobuff.features
 
+import net.ccbluex.liquidbounce.event.requires
 import net.ccbluex.liquidbounce.event.tickUntil
-import net.ccbluex.liquidbounce.event.waitTicks
 import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.ModuleAutoBuff
 import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.ModuleAutoBuff.Rotations.RotationTimingMode.NORMAL
 import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.ModuleAutoBuff.Rotations.RotationTimingMode.ON_TICK
@@ -30,16 +30,14 @@ import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager.currentRotation
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
 import net.ccbluex.liquidbounce.utils.aiming.utils.withFixedYaw
-import net.ccbluex.liquidbounce.utils.network.MovePacketType
-import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.combat.shouldBeAttacked
-import net.ccbluex.liquidbounce.utils.entity.FallingPlayer
+import net.ccbluex.liquidbounce.utils.entity.fallingPlayer
 import net.ccbluex.liquidbounce.utils.entity.rotation
 import net.ccbluex.liquidbounce.utils.inventory.HotbarItemSlot
-import net.ccbluex.liquidbounce.utils.inventory.InventoryManager
 import net.ccbluex.liquidbounce.utils.inventory.useHotbarSlotOrOffhand
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.ccbluex.liquidbounce.utils.math.yaw
+import net.ccbluex.liquidbounce.utils.network.MovePacketType
 import net.ccbluex.liquidbounce.utils.render.trajectory.TrajectoryInfo
 import net.ccbluex.liquidbounce.utils.render.trajectory.TrajectoryInfoRenderer
 import net.ccbluex.liquidbounce.utils.render.trajectory.TrajectoryType
@@ -63,7 +61,7 @@ internal object Pot : StatusEffectBasedBuff("Pot") {
 
     override val passesRequirements: Boolean
         get() {
-            if (InventoryManager.isInventoryOpen) {
+            if (ModuleAutoBuff.isInventoryBlocking) {
                 return false
             }
 
@@ -84,7 +82,7 @@ internal object Pot : StatusEffectBasedBuff("Pot") {
                 return false
             }
 
-            val collisionBlock = FallingPlayer.fromPlayer(player).findCollision(20)?.pos
+            val collisionBlock = player.fallingPlayer().findCollision(20)?.pos
             val isCloseGround = player.y - (collisionBlock?.y ?: 0) <= tillGroundDistance
 
             // Do not check for health pass requirements, because this is already done in the potion check
@@ -108,9 +106,8 @@ internal object Pot : StatusEffectBasedBuff("Pot") {
                     priority = Priority.IMPORTANT_FOR_PLAYER_LIFE
                 )
 
-                tickUntil {
-                    !inGame || (currentRotation ?: player.rotation).pitch >= rotation.pitch - 1
-                }
+                requires { isUsable(slot) }
+                tickUntil { (currentRotation ?: player.rotation).pitch >= rotation.pitch - 1 }
 
                 rotation = rotation.normalize()
             }
@@ -127,8 +124,6 @@ internal object Pot : StatusEffectBasedBuff("Pot") {
                 rotation = rotation.normalize()
             }
         }
-
-        if (!inGame) return // TODO: I think we should edit the continuation interceptor here
 
         useHotbarSlotOrOffhand(
             slot,
@@ -147,8 +142,8 @@ internal object Pot : StatusEffectBasedBuff("Pot") {
             else -> {}
         }
 
-        // Wait at least 1 tick to make sure, we do not continue with something else too early
-        waitTicks(1)
+        // The next buff waits at least a tick, so we do not continue with something else too early
+        ModuleAutoBuff.waitBeforeNextBuff(1)
     }
 
     /**
@@ -167,7 +162,7 @@ internal object Pot : StatusEffectBasedBuff("Pot") {
             val sim = TrajectoryInfoRenderer.getHypotheticalTrajectory(
                 simulationOwner = player,
                 trajectoryInfo = TrajectoryInfo.POTION,
-                trajectoryType = TrajectoryType.Potion,
+                trajectoryType = TrajectoryType.POTION,
                 rotation = rotation,
             ).runSimulation(300)
 

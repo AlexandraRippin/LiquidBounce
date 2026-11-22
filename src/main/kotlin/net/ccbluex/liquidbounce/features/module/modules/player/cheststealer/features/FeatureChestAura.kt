@@ -23,6 +23,7 @@ import net.ccbluex.liquidbounce.config.types.group.ToggleableValueGroup
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.event.events.PacketEvent
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
+import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickConditional
 import net.ccbluex.liquidbounce.event.tickHandler
@@ -36,6 +37,7 @@ import net.ccbluex.liquidbounce.utils.block.anotherChestPartDirection
 import net.ccbluex.liquidbounce.utils.block.searchBlocksInRangeSorted
 import net.ccbluex.liquidbounce.utils.block.state
 import net.ccbluex.liquidbounce.utils.combat.CombatManager
+import net.ccbluex.liquidbounce.utils.entity.shouldSwingHand
 import net.ccbluex.liquidbounce.utils.inventory.findBlocksEndingWith
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.READ_FINAL_STATE
 import net.ccbluex.liquidbounce.utils.raytracing.raytraceBlock
@@ -66,7 +68,7 @@ object FeatureChestAura : ToggleableValueGroup(ModuleChestStealer, "Aura", true)
         minOf(interactionRange, it)
     }
     private val interactionDelay by int("Delay", 5, 1..80, "ticks")
-    private val swingMode by enumChoice("SwingMode", SwingMode.DO_NOT_HIDE)
+    private val swingMode by enumChoice("SwingMode", SwingMode.DO_NOT_HIDE, SwingMode.INTERACT_CHOICES)
 
     private val notDuringCombat by boolean("NotDuringCombat", true)
 
@@ -119,10 +121,19 @@ object FeatureChestAura : ToggleableValueGroup(ModuleChestStealer, "Aura", true)
         get() = super.running && pauseOn.none { it.asBoolean }
 
     override fun onDisabled() {
+        forget()
+        super.onDisabled()
+    }
+
+    @Suppress("unused")
+    private val worldChangeHandler = handler<WorldChangeEvent> {
+        forget()
+    }
+
+    private fun forget() {
         interactedBlocksSet.clear()
         interactionAttempts = 0
         currentTargetBlock = null
-        super.onDisabled()
     }
 
     // Event handler responsible for updating the target block
@@ -197,8 +208,11 @@ object FeatureChestAura : ToggleableValueGroup(ModuleChestStealer, "Aura", true)
         }
 
         // Attempt to interact with the block
-        if (interaction.useItemOn(player, InteractionHand.MAIN_HAND, rayTraceResult) == InteractionResult.SUCCESS) {
-            swingMode.swing(InteractionHand.MAIN_HAND)
+        val useItemOnResult = interaction.useItemOn(player, InteractionHand.MAIN_HAND, rayTraceResult)
+        if (useItemOnResult is InteractionResult.Success) {
+            if (useItemOnResult.shouldSwingHand()) {
+                swingMode.interactSwing(InteractionHand.MAIN_HAND)
+            }
 
             var wasInteractionSuccessful = false
 

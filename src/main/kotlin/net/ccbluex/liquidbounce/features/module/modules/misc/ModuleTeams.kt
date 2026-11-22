@@ -31,6 +31,8 @@ import net.ccbluex.liquidbounce.utils.text.stripMinecraftColorCodes
 import net.ccbluex.liquidbounce.utils.inventory.EquipmentSlotChoice
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.ccbluex.liquidbounce.utils.kotlin.matchesAny
+import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.TextColor
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.player.Player
@@ -93,8 +95,10 @@ object ModuleTeams : ClientModule("Teams", ModuleCategories.MISC) {
     /**
      * Check if [entity] is in your own team using scoreboard,
      * name color, armor color or team prefix.
+     *
+     * Shared with modules that filter teammates out instead of not attacking them.
      */
-    private fun isInClientPlayersTeam(entity: LivingEntity) =
+    internal fun isInClientPlayersTeam(entity: LivingEntity) =
         matches.matchesAny(entity) || checkArmor(entity)
 
     /**
@@ -116,11 +120,11 @@ object ModuleTeams : ClientModule("Teams", ModuleCategories.MISC) {
         }),
 
         /**
-         * Checks if both names have the same color.
+         * Checks if both names have the same color, wherever in the name that color is set.
          */
         NAME_COLOR("NameColor", { suspected ->
-            val targetColor = player.simpleDisplayName.style.color
-            val clientColor = suspected.simpleDisplayName.style.color
+            val targetColor = player.simpleDisplayName.nameColor
+            val clientColor = suspected.simpleDisplayName.nameColor
 
             targetColor != null
                 && clientColor != null
@@ -159,3 +163,17 @@ object ModuleTeams : ClientModule("Teams", ModuleCategories.MISC) {
         return ownColor == otherColor
     }
 }
+
+/**
+ * The color of the whole name, such as the team color, or else the first color set inside it
+ * by a component or a legacy color code.
+ */
+private val Component.nameColor: TextColor?
+    get() = style.color ?: run {
+        var color: TextColor? = null
+        visualOrderText.accept { _, style, _ ->
+            color = style.color
+            color == null
+        }
+        color
+    }

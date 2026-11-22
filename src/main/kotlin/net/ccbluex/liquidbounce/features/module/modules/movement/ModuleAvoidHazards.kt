@@ -18,6 +18,8 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.movement
 
+import net.ccbluex.agent.simulation.SimulatedInput
+import net.ccbluex.agent.simulation.SimulatedPlayer
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.event.events.BlockShapeEvent
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
@@ -28,14 +30,13 @@ import net.ccbluex.liquidbounce.features.module.modules.movement.avoidhazards.Av
 import net.ccbluex.liquidbounce.features.module.modules.movement.avoidhazards.isLadderClimbState
 import net.ccbluex.liquidbounce.utils.block.getBlock
 import net.ccbluex.liquidbounce.utils.block.state
-import net.ccbluex.liquidbounce.utils.entity.SimulatedPlayer
+import net.ccbluex.liquidbounce.utils.entity.fromClientPlayer
 import net.ccbluex.liquidbounce.utils.entity.isOnMagmaBlock
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.SAFETY_FEATURE
 import net.ccbluex.liquidbounce.utils.math.intersects
 import net.ccbluex.liquidbounce.utils.math.toBlockPos
 import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
 import net.ccbluex.liquidbounce.utils.world.anyMatched
-import net.ccbluex.liquidbounce.utils.world.findBlocksIntersects
 import net.minecraft.client.multiplayer.ClientLevel
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.block.BasePressurePlateBlock
@@ -58,7 +59,7 @@ import net.minecraft.world.phys.shapes.Shapes
  * Prevents you walking into blocks that might be malicious for you.
  */
 object ModuleAvoidHazards : ClientModule("AvoidHazards", ModuleCategories.MOVEMENT) {
-    private var mode by enumChoice("Mode", AvoidMode.SHAPE)
+    private val mode by enumChoice("Mode", AvoidMode.SHAPE)
     private val avoid by multiEnumChoice("Avoid", Avoid.entries)
 
     // Solid webs keep NoWeb from ever handling one; steering around them does not
@@ -117,7 +118,7 @@ object ModuleAvoidHazards : ClientModule("AvoidHazards", ModuleCategories.MOVEME
     ): Boolean {
         val level = mc.level ?: return true
 
-        val simulatedInput = SimulatedPlayer.SimulatedPlayerInput.fromClientPlayer(
+        val simulatedInput = SimulatedInput.fromClientPlayer(
             directionalInput = directionalInput,
             jump = jump,
             sprinting = player.isSprinting,
@@ -125,7 +126,7 @@ object ModuleAvoidHazards : ClientModule("AvoidHazards", ModuleCategories.MOVEME
         )
 
         val simulatedPlayer = SimulatedPlayer.fromClientPlayer(simulatedInput)
-        simulatedPlayer.pos = player.position()
+        simulatedPlayer.setPos(player.position())
         var previousBoundingBox = simulatedPlayer.boundingBox
         // Do not reject every candidate while already on a ladder. We only block
         // transitions that newly enter climb-state.
@@ -161,7 +162,7 @@ object ModuleAvoidHazards : ClientModule("AvoidHazards", ModuleCategories.MOVEME
      * @see isLadderClimbState
      */
     private fun wouldEnterLadderClimbState(simulatedPlayer: SimulatedPlayer): Boolean {
-        return isLadderClimbStateAt(simulatedPlayer.pos.toBlockPos())
+        return isLadderClimbStateAt(simulatedPlayer.position().toBlockPos())
     }
 
     private fun isLadderClimbStateAt(pos: BlockPos): Boolean {
@@ -179,7 +180,7 @@ object ModuleAvoidHazards : ClientModule("AvoidHazards", ModuleCategories.MOVEME
             return true
         }
 
-        return world.findBlocksIntersects(boundingBox).anyMatched { pos, blockState ->
+        return world.findBlocksIn(boundingBox).anyMatched { pos, blockState ->
             val fluidState = blockState.fluidState
             val block = blockState.block
 
@@ -252,7 +253,7 @@ object ModuleAvoidHazards : ClientModule("AvoidHazards", ModuleCategories.MOVEME
             pos.below().getBlock() is MagmaBlock
         }),
         LAVA("Lava", test = { _, fluidState, _ ->
-            fluidState.`is`(Fluids.LAVA) || fluidState.`is`(Fluids.FLOWING_LAVA)
+            fluidState.type.isSame(Fluids.LAVA)
         }),
         WITHER_ROSE("WitherRose", test = { block, _, _ ->
             block is WitherRoseBlock

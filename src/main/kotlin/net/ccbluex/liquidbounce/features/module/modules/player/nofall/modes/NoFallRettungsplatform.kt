@@ -21,10 +21,10 @@ package net.ccbluex.liquidbounce.features.module.modules.player.nofall.modes
 import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.event.waitTicks
 import net.ccbluex.liquidbounce.features.module.modules.player.nofall.ModuleNoFall
-import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debugParameter
+import net.ccbluex.liquidbounce.features.module.modules.render.debug.debugParameter
 import net.ccbluex.liquidbounce.utils.block.getBlock
 import net.ccbluex.liquidbounce.utils.block.state
-import net.ccbluex.liquidbounce.utils.entity.FallingPlayer
+import net.ccbluex.liquidbounce.utils.entity.fallingPlayer
 import net.ccbluex.liquidbounce.utils.inventory.Slots
 import net.ccbluex.liquidbounce.utils.inventory.findClosestSlot
 import net.ccbluex.liquidbounce.utils.inventory.useHotbarSlotOrOffhand
@@ -56,7 +56,7 @@ internal object NoFallRettungsplatform : NoFallMode("Rettungsplatform") {
 
             // Are we actually going to fall into the void?
             // todo: check if the fall damage is actually high enough to kill us
-            val collision = FallingPlayer.fromPlayer(player).findCollision(90)?.pos
+            val collision = player.fallingPlayer().findCollision(90)?.pos
             ModuleNoFall.debugParameter("Collision") {
                 collision?.getBlock()
             }

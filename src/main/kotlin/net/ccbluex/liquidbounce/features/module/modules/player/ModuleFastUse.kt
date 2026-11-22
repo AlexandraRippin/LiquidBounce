@@ -24,6 +24,7 @@ import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
 import net.ccbluex.liquidbounce.event.handler
+import net.ccbluex.liquidbounce.event.requires
 import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.event.waitTicks
 import net.ccbluex.liquidbounce.features.module.ClientModule
@@ -113,6 +114,7 @@ object ModuleFastUse : ClientModule("FastUse", ModuleCategories.PLAYER, aliases 
                     resetAfterTicks = 1 + delay
                 )
 
+                requires { accelerateNow }
                 waitTicks(delay)
                 repeat(speed) {
                     network.send(packetType.generatePacket())
@@ -132,7 +134,7 @@ object ModuleFastUse : ClientModule("FastUse", ModuleCategories.PLAYER, aliases 
         val speed by int("Speed", 20, 1..35, "packets")
 
         @Suppress("unused")
-        val repeatable = tickHandler {
+        val repeatable = handler<GameTickEvent> {
             if (accelerateNow && player.ticksUsingItem >= consumeTime) {
                 repeat(speed) {
                     network.send(packetType.generatePacket())

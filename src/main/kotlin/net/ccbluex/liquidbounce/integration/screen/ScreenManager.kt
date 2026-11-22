@@ -63,6 +63,7 @@ import com.mojang.blaze3d.platform.cursor.CursorType
 import kotlin.math.min
 import kotlin.time.Duration.Companion.seconds
 
+@Suppress("TooManyFunctions")
 object ScreenManager : EventListener {
 
     private val logger = clientLogger("ScreenManager")
@@ -112,8 +113,15 @@ object ScreenManager : EventListener {
         if (waitMatchesWithTimeout<GameTickEvent>(timeout = 30.seconds) {
                 browser.isInitialized && browser.state.isCompleted
             } == null) {
+            val stage = when {
+                !browser.isInitialized -> "the browser was never created"
+                browser.state == BrowserState.Idle -> "the page never started loading"
+                else -> "the page did not finish loading"
+            }
+            val openRequests = ClientInteropServer.openRequests()
+            logger.error("Unanswered interop requests: ${openRequests.ifEmpty { listOf("none") }.joinToString()}")
             ErrorHandler.fatal(
-                error = IllegalStateException("Timed out waiting for integration browser to initialize."),
+                error = IllegalStateException("Timed out waiting for integration browser to initialize: $stage."),
                 quickFix = QuickFixes.BROWSER_IS_NOT_RESPONDING
             )
         }
@@ -409,5 +417,12 @@ object ScreenManager : EventListener {
         || screen is CustomStandaloneMinecraftScreen
         || screen is InternetExplorerScreen
         || screen is MicrosoftLoginScreen
+
+    /**
+     * Whether the theme overlaying the current screen applies [tweak] to it.
+     */
+    @JvmStatic
+    fun isTweakEnabled(tweak: ScreenTweak) = screen?.type == tweak.screenType &&
+        theme?.metadata?.screenTweaks?.contains(tweak) == true
 
 }

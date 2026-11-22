@@ -39,7 +39,6 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
-import net.minecraft.world.InteractionHand
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.HitResult
@@ -156,9 +155,9 @@ internal object PunchToDeposit : ToggleableValueGroup(ModuleAutoDeposit, "PunchT
             hit
         }
 
-        SilentHotbar.selectSlotSilently(this, slot, 1)
+        SilentHotbar.selectSlotSilently(this@PunchToDeposit, slot, 1)
         clickStorage(rayTraceResult)
-        swingMode.swing(InteractionHand.MAIN_HAND)
+        swingMode.attackSwing()
 
         if (rotateToTarget) {
             currentTargetBlock = null

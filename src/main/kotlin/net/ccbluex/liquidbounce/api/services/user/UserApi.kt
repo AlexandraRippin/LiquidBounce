@@ -20,34 +20,41 @@ package net.ccbluex.liquidbounce.api.services.user
 
 import com.google.gson.JsonObject
 import net.ccbluex.liquidbounce.api.core.ApiConfig.Companion.config
-import net.ccbluex.liquidbounce.api.core.BaseApi
-import net.ccbluex.liquidbounce.api.models.auth.OAuthSession
-import net.ccbluex.liquidbounce.api.models.auth.addAuth
-import net.ccbluex.liquidbounce.api.models.cosmetics.Cosmetic
-import net.ccbluex.liquidbounce.api.models.user.UserInformation
 import net.ccbluex.liquidbounce.api.core.toRequestBody
+import net.ccbluex.liquidbounce.api.models.auth.OAuthSession
+import net.ccbluex.liquidbounce.api.models.auth.authorization
+import net.ccbluex.liquidbounce.api.models.user.UserInformation
+import okhttp3.RequestBody
+import retrofit2.create
+import retrofit2.http.Body
+import retrofit2.http.GET
+import retrofit2.http.Header
+import retrofit2.http.PATCH
 import java.util.UUID
 
 /**
  * API for user-related endpoints that require authentication
  */
-object UserApi : BaseApi(config.apiEndpointV3) {
+object UserApi {
 
-    suspend fun getUserInformation(session: OAuthSession) = get<UserInformation>(
-        "/oauth/user",
-        headers = { addAuth(session) }
+    private val service = config.retrofit.create<Service>()
+
+    suspend fun getUserInformation(session: OAuthSession) = service.account(session.authorization)
+
+    suspend fun transferTemporaryOwnership(session: OAuthSession, uuid: UUID) = service.updateMinecraftLink(
+        JsonObject().apply { addProperty("temporaryUuid", uuid.toString()) }.toRequestBody(),
+        session.authorization,
     )
 
-    suspend fun getCosmetics(session: OAuthSession) = get<Set<Cosmetic>>(
-        "/cosmetics/self",
-        headers = { addAuth(session) }
-    )
+    internal interface Service {
+        @GET("me")
+        suspend fun account(@Header("Authorization") authorization: String): UserInformation
 
-    suspend fun transferTemporaryOwnership(session: OAuthSession, uuid: UUID) = put<Unit>(
-        "/cosmetics/self",
-        JsonObject().apply {
-            addProperty("uuid", uuid.toString())
-        }.toRequestBody(),
-        headers = { addAuth(session) }
-    )
+        @PATCH("me/minecraft")
+        suspend fun updateMinecraftLink(
+            @Body body: RequestBody,
+            @Header("Authorization") authorization: String,
+        )
+    }
+
 }

@@ -39,4 +39,3 @@ inline fun Float.toFixed(digits: Int): String {
 inline fun Double.toFixed(digits: Int): String {
     return "%.${digits}f".format(this)
 }
-

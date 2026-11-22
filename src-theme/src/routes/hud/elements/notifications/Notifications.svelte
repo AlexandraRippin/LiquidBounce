@@ -4,6 +4,7 @@
     import {fly} from "svelte/transition";
     import Notification from "./Notification.svelte";
     import type {NotificationEvent, NotificationSeverity} from "../../../../integration/events";
+    import type {HudNotificationsSettings} from "../../components";
 
     interface TNotification {
         animationKey: number;
@@ -59,8 +60,8 @@
     {#each notifications as {title, message, severity, animationKey} (animationKey)}
         <div
                 animate:flip={{ duration: 200 }}
-                in:fly={{ x: 30, duration: 200 }}
-                out:fly={{ x: 30, duration: 200 }}
+                in:fly={{ x: 30, duration: 160 }}
+                out:fly={{ x: 30, duration: 160 }}
         >
             <Notification {title} {message} {severity}/>
         </div>

@@ -19,7 +19,7 @@
 package net.ccbluex.liquidbounce.features.module.modules.world.scaffold.techniques
 
 import net.ccbluex.liquidbounce.config.types.list.Tagged
-import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debugParameter
+import net.ccbluex.liquidbounce.features.module.modules.render.debug.debugParameter
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ModuleScaffold
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ModuleScaffold.getTargetedPosition
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ModuleScaffold.rawInput
@@ -91,9 +91,9 @@ object ScaffoldGodBridgeTechnique : ScaffoldTechnique("GodBridge"), ScaffoldLedg
         // but we hope it does not. :)
         val snapshotOne = simulatedPlayerCache.getSnapshotAt(1)
 
-        debugParameter("Snapshot Ledged") { snapshotOne.clipLedged }
+        debugParameter("Snapshot Ledged") { snapshotOne.hasBackedOffEdge }
 
-        return if (snapshotOne.clipLedged) {
+        return if (snapshotOne.hasBackedOffEdge) {
             val cameraPosition = snapshotOne.pos.add(0.0, player.eyeHeight.toDouble(), 0.0)
             val currentCrosshairTarget = traceFromPoint(start = cameraPosition, direction = rotation.directionVector)
 

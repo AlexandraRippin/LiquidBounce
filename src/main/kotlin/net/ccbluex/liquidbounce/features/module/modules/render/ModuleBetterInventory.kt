@@ -32,6 +32,7 @@ import net.ccbluex.liquidbounce.render.gui.ItemStackListRenderState
 import net.ccbluex.liquidbounce.utils.inventory.InventoryManager
 import net.ccbluex.liquidbounce.utils.item.getCooldown
 import net.ccbluex.liquidbounce.utils.math.toFixed
+import net.ccbluex.liquidbounce.utils.text.withFormat
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.render.GuiRenderer
 import net.minecraft.client.renderer.RenderPipelines
@@ -53,7 +54,7 @@ object ModuleBetterInventory : ClientModule("BetterInventory", ModuleCategories.
             abstract fun drawHighlightSlot(context: GuiGraphicsExtractor, slot: Slot)
 
             object Border : Mode("Border") {
-                val color by color("Color", Color4b.GREEN)
+                val color by color("Color", Color4b.LIQUID_BOUNCE)
 
                 override fun drawHighlightSlot(context: GuiGraphicsExtractor, slot: Slot) {
                     context.drawBorder(
@@ -118,6 +119,14 @@ object ModuleBetterInventory : ClientModule("BetterInventory", ModuleCategories.
         tree(ContainerItemView)
     }
 
+    private val moveCursor by boolean("MoveCursor", true)
+
+    /**
+     * Whether the cursor goes to the slots the inventory modules click while a screen shows them.
+     */
+    val shouldMoveCursor
+        get() = running && moveCursor
+
     fun GuiGraphicsExtractor.drawTextCooldownProgress(stack: ItemStack, x: Int, y: Int) {
         if (!running || stack.isEmpty || !TextCooldownProgress.enabled) return
 
@@ -143,7 +152,7 @@ object ModuleBetterInventory : ClientModule("BetterInventory", ModuleCategories.
             }
             this.centeredText(
                 mc.font,
-                text,
+                text.withFormat(),
                 x + GuiRenderer.DEFAULT_ITEM_SIZE / 2,
                 y,
                 TextCooldownProgress.color.argb,

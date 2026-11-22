@@ -18,8 +18,12 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.movement.speed
 
+import net.ccbluex.agent.simulation.SimulatedInput
+import net.ccbluex.agent.simulation.SimulatedPlayer
+import net.ccbluex.agent.v26_3.toAgent
+import net.ccbluex.agent.world.Input
 import net.ccbluex.liquidbounce.features.module.MinecraftShortcuts
-import net.ccbluex.liquidbounce.utils.entity.SimulatedPlayer
+import net.ccbluex.liquidbounce.utils.entity.fromClientPlayer
 import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
 import net.minecraft.client.player.LocalPlayer
 import net.minecraft.world.phys.Vec3
@@ -29,15 +33,15 @@ object SpeedPreventDeadlyJump : MinecraftShortcuts {
     fun wouldJumpToDeath(maxFallDistance: Double = 10.0): Boolean {
         val simulatedPlayer = createSimulatedPlayer(player)
 
-        simulatedPlayer.jump()
+        simulatedPlayer.jumpFromGround()
 
         var groundPos: Vec3? = null
 
         for (ignored in 0..40) {
             simulatedPlayer.tick()
 
-            if (simulatedPlayer.onGround) {
-                groundPos = simulatedPlayer.pos
+            if (simulatedPlayer.onGround()) {
+                groundPos = simulatedPlayer.position()
 
                 break
             }
@@ -47,21 +51,13 @@ object SpeedPreventDeadlyJump : MinecraftShortcuts {
             return true
         }
 
-        simulatedPlayer.input = SimulatedPlayer.SimulatedPlayerInput(
-            DirectionalInput.NONE, jumping = false,
-            sprinting = false, sneaking = false
-        )
+        simulatedPlayer.input = SimulatedInput(Input.EMPTY)
 
         return wouldFallToDeath(simulatedPlayer, ticksToWaitForFall = 5, maxFallDistance = maxFallDistance)
     }
 
     private fun createSimulatedPlayer(player: LocalPlayer): SimulatedPlayer {
-        val input = SimulatedPlayer.SimulatedPlayerInput(
-            DirectionalInput(player.input),
-            jumping = false,
-            sprinting = true,
-            sneaking = false
-        )
+        val input = SimulatedInput(DirectionalInput(player.input).toInput(sprint = true).toAgent())
 
         return SimulatedPlayer.fromClientPlayer(input)
     }
@@ -80,26 +76,21 @@ object SpeedPreventDeadlyJump : MinecraftShortcuts {
         for (ignored in 0..40) {
             simulatedPlayer.tick()
 
-            if (simulatedPlayer.onGround) {
-                groundPos = simulatedPlayer.pos
+            if (simulatedPlayer.onGround()) {
+                groundPos = simulatedPlayer.position()
 
                 break
             }
         }
 
         if (groundPos != null) {
-            simulatedPlayer.input = SimulatedPlayer.SimulatedPlayerInput(
-                DirectionalInput.NONE,
-                jumping = false,
-                sprinting = false,
-                sneaking = false
-            )
+            simulatedPlayer.input = SimulatedInput(Input.EMPTY)
 
             for (ignored in 0..40) {
                 simulatedPlayer.tick()
 
-                groundPos = if (simulatedPlayer.onGround) {
-                    simulatedPlayer.pos
+                groundPos = if (simulatedPlayer.onGround()) {
+                    simulatedPlayer.position()
                 } else {
                     null
                 }

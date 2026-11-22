@@ -312,6 +312,12 @@ export interface Server {
     lan?: boolean;
 }
 
+export interface ConnectionDetails {
+    remoteAddress: string;
+    serverAddress: string;
+    proxy: boolean;
+}
+
 export interface TextComponent {
     type?: string;
     extra?: (TextComponent | string)[];
@@ -497,13 +503,14 @@ export interface Screen {
 }
 
 export interface ClientUser {
-    userId: string;
+    uid: string;
     email: string;
-    name: string | null;
-    nickname: string | null;
-    groups: string[];
+    name?: string;
+    nickname: string;
+    roles: { id: string; displayName: string }[];
+    permissions: string[];
     premium: boolean;
-    admin: boolean;
+    cosmetics: { category?: string; style?: string; enabled?: boolean }[];
 }
 
 export interface RegistryItem {

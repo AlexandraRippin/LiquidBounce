@@ -7,6 +7,7 @@
     import {flip} from "svelte/animate";
     import {fly} from "svelte/transition";
     import {convertToSpacedString, spaceSeperatedNames} from "../../../theme/theme_config";
+    import type {HudArrayListSettings} from "../components";
 
     export let settings: { [name: string]: any };
 
@@ -64,7 +65,7 @@
                 class="module"
                 style={cSettings.itemAlignment === "Left" ? "margin-right: auto;" : "margin-left: auto;"}
                 animate:flip={{ duration: 200 }}
-                transition:fly={{ x: 50, duration: 200 }}
+                transition:fly={{ x: 50, duration: 160 }}
         >
             {$spaceSeperatedNames ? convertToSpacedString(name) : name}
             {#if tag && cSettings.showTags}
