@@ -36,6 +36,7 @@ internal object NoSlowSneaking : ToggleableValueGroup(ModuleNoSlow, "Sneaking", 
             NoneMode(it),
             NoSlowSneakingSwitch(it),
             NoSlowSneakingAAC5(it),
+            NoSlowGrimClamp(it)
         )
     }
 
